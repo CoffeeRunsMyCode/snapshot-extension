@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Snapshot — Capture unavailable</title><link rel="stylesheet" href="capture-help.css"></head>
+<body>
+  <header class="brand"><span class="brand-mark" data-icon="scan"></span>Snapshot</header>
+  <main>
+    <div class="heading"><span class="alert-icon" data-icon="info"></span><h1>Can’t capture this page</h1></div>
+    <p class="lead">Chrome doesn’t let extensions run on browser pages like Settings, Extensions, the New Tab page or the Chrome Web Store.</p>
+    <ul class="steps">
+      <li>Switch to a regular website, then try again.</li>
+      <li>If the page was open before Snapshot was installed or updated, reload it.</li>
+      <li>For local files, turn on <strong>Allow access to file URLs</strong> in extension details.</li>
+    </ul>
+    <button id="retry" class="primary"><span data-icon="retry"></span>Try again</button>
+    <p id="status" role="alert"></p>
+    <div class="secondary-actions"><button id="details" class="secondary"><span data-icon="external"></span>Extension details</button><button id="library" class="secondary"><span data-icon="folder"></span>Open library</button></div>
+  </main>
+  <footer>Shortcut <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>S</kbd></footer>
+  <script type="module" src="dist/capture-help.js"></script>
+</body>
+</html>

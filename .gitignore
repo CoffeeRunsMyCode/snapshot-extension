@@ -1,0 +1,39 @@
+# Local dependencies and caches
+node_modules/
+*.tsbuildinfo
+coverage/
+*.log
+
+# Generated release archives (dist/ stays tracked for unpacked installation)
+artifacts/
+*.zip
+
+# Keep project instructions and skills available for private version control.
+# Ignore other machine-local assistant configuration.
+.agents/*
+!.agents/skills/
+.claude/*
+!.claude/skills/
+.codex/
+
+# Credentials stay private even in the development repository.
+.aws/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Exclude private AI development instructions and configuration
+AGENTS.md
+CLAUDE.md
+.agents/
+.claude/
+.codex/

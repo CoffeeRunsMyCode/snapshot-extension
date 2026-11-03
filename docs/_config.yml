@@ -1,0 +1,12 @@
+title: Snapshot User Guide
+description: Capture a webpage detail and keep the images you want.
+# Only the user guide and its assets belong on the documentation site.
+# Keep private working notes out of the separate public repository as well.
+exclude:
+  - RELEASE-PLAN.md
+  - BUILD-LOG.md
+  - PREPUBLICATION-REVIEW.md
+  - PUBLICATION-AUDIT.md
+  - PRD.md
+  - brand-guidelines.md
+  - GUIDE-MAINTENANCE.md

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Install Snapshot, capture a webpage detail, and organize your images in a local library.">
+  <title>Snapshot — User guide</title>
+  <link rel="stylesheet" href="guide.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to guide</a>
+  <header class="header"><a class="brand" href="#top" aria-label="Snapshot guide home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m13-5h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3M8 8h8v8H8z"/></svg>Snapshot <span>User guide</span></a><span class="version">Version 0.5.2 · Chrome 116+</span></header>
+  <div class="layout" id="top">
+    <nav class="contents" aria-label="Guide contents">
+      <p class="eyebrow">In this guide</p>
+      <a href="#start">Get started</a><a href="#install">Install &amp; update</a><a href="#capture">Capture a detail</a><a href="#library">Your library</a><a href="#folders">Organize with folders</a><a href="#settings">Settings</a><a href="#shortcuts">Keyboard shortcuts</a><a href="#troubleshooting">Troubleshooting</a><a href="#privacy">Your images &amp; privacy</a>
+      <p class="nav-note">Capture what matters.<br>Keep it on your device.</p>
+    </nav>
+    <main id="main" tabindex="-1">
+      <section id="start" class="intro">
+        <p class="eyebrow">A little detail. Worth keeping.</p>
+        <h1>From webpage<br>to useful reference.</h1>
+        <p class="lead">Capture an element or an area, paste it where you need it, and save the images you want to find again.</p>
+        <div class="actions"><a class="button" href="#install">Install Snapshot <span aria-hidden="true">→</span></a><a href="#capture">Already installed? Take a capture →</a></div>
+        <div class="quickstart"><h2>Your first capture</h2><ol><li><strong>Start.</strong> Open a webpage and press <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>S</kbd>.</li><li><strong>Select.</strong> Hover an element and click to capture it.</li><li><strong>Use it.</strong> Paste the copied image, or choose <strong>Save to library</strong>.</li></ol><p>Automatic copy is on by default. Saving to the library is a separate choice unless you enable automatic saving.</p></div>
+      </section>
+      <section id="install">
+        <p class="eyebrow">01 / Set up</p><h2>Install once. Keep the folder.</h2>
+        <p>Snapshot is installed as an unpacked Chrome extension. It is not currently on the Chrome Web Store.</p>
+        <ol class="steps"><li>On the Snapshot GitHub repository, open <strong>Releases</strong> and download <strong>Snapshot-&lt;version&gt;.zip</strong>. Choose this release asset rather than GitHub’s “Source code” archive.</li><li>Extract the ZIP to a folder you will keep, such as <code>Documents/Snapshot</code>.</li><li>Type <code>chrome://extensions</code> into Chrome’s address bar. Turn on <strong>Developer mode</strong> at the top right.</li><li>Choose <strong>Load unpacked</strong> and select the extracted folder containing <code>manifest.json</code>.</li><li>For easy access, open Chrome’s Extensions menu (the puzzle piece) and pin Snapshot.</li></ol>
+        <aside class="note"><strong>Keep that folder in place.</strong> Chrome loads Snapshot from it whenever the browser starts.</aside>
+        <h3>Update without losing your library</h3><ol><li>Download the new release ZIP and extract it <strong>over the same folder</strong>, replacing the old files.</li><li>Open <code>chrome://extensions</code> and click the reload icon on the Snapshot card.</li><li>Refresh open library tabs and the webpages you want to capture.</li></ol><p>Do not uninstall to update: uninstalling deletes the local library. Loading a different folder can create a separate installation with an empty library.</p>
+      </section>
+      <section id="capture">
+        <p class="eyebrow">02 / Capture</p><h2>Choose exactly the detail you need.</h2>
+        <p>On a regular webpage, click the Snapshot toolbar icon or press <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>S</kbd>.</p>
+        <div class="two-column"><div><h3>Element</h3><p>Hover over an image, heading, button or section. Click the highlighted element to capture it.</p><p>Need a different boundary? Use the larger/smaller controls, or <kbd>↑</kbd> and <kbd>↓</kbd> to select a parent or return to the child you expanded from. <kbd>←</kbd> and <kbd>→</kbd> move between elements; <kbd>Enter</kbd> captures.</p></div><div><h3>Area</h3><p>Choose <strong>Area</strong>, then drag a rectangle. Releasing the mouse captures the selection.</p><p>For precise placement, enter <strong>X</strong>, <strong>Y</strong>, <strong>Width</strong> and <strong>Height</strong>, then choose <strong>Capture selection</strong>. Coordinates are pixels from the top-left of the visible page.</p></div></div><p>Use <strong>Capture padding</strong> to add 8, 16 or 24 pixels around an element or area. Padding beyond the visible page is clipped.</p>
+        <figure><a href="images/capture.png"><img src="images/capture.png" width="1200" height="800" loading="lazy" alt="Snapshot on a synthetic webpage, with a copied-image confirmation and the element and area capture toolbar."></a><figcaption>A successful capture offers Save to library and Download PNG. Example content is synthetic; click any screenshot to view it full size.</figcaption></figure>
+        <h3>After a capture</h3><ul><li><strong>Paste:</strong> when copying succeeds, paste into an app that accepts images.</li><li><strong>Save to library:</strong> keep the image inside Snapshot for later.</li><li><strong>Download PNG:</strong> save a separate image file to your device. Saved images can also be downloaded from the library later.</li><li><strong>Keep clipping:</strong> dismiss the notification and select another detail. Capture mode stays on.</li></ul>
+        <p>A thin muted bar shows the initial confirmation’s five-second auto-hide timer. Hovering the panel or focusing a control restores a full five seconds and holds it until you move away. The bar stays still when reduced motion is enabled. Click its <strong>×</strong> to hide it immediately and keep capturing; nothing is left floating over the page. There is no control to reopen the dismissed notification. Errors stay visible until dismissed. Press <kbd>Esc</kbd> to exit capture mode.</p><p>Dismissing the notification leaves the clipboard and saved library images unchanged. After a successful copy, the image stays in the clipboard until something replaces or clears it. Save to library if you want to find it later inside Snapshot.</p><aside class="note"><strong>Only the visible page is captured.</strong> Scroll the detail into view first. Snapshot’s own capture controls are excluded from the image. Keep the tab and Chrome window active, and avoid scrolling or resizing during capture.</aside>
+      </section>
+      <section id="library">
+        <p class="eyebrow">03 / Find &amp; reuse</p><h2>Your references, together.</h2>
+        <p>Right-click the Snapshot extension icon and choose <strong>Open library</strong>, or press <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>L</kbd>.</p>
+        <figure><a href="images/library.png"><img src="images/library.png" width="1200" height="800" loading="lazy" alt="Snapshot library with three synthetic design references, favorites, website filters and a Design references folder."></a><figcaption>Use the sidebar to browse, search to narrow the results, and grid or list view to change the layout.</figcaption></figure>
+        <ul><li><strong>Find an image:</strong> search by title or website, choose a website filter, or browse <strong>Recently saved</strong> (captures taken within the last seven days) and <strong>Favorites</strong>. Choose Newest first or Oldest first to change the order.</li><li><strong>Favorite:</strong> click the star to mark a reference you use often.</li><li><strong>Reuse:</strong> open a preview, copy an image, download it, or follow its saved source link.</li><li><strong>Select several:</strong> choose Select, pick images or Select all shown, then move or delete the selection.</li></ul>
+        <p><strong>Seven days is a view filter, not a storage limit.</strong> Recently saved uses the time you took the capture. Older saved images remain in All snapshots and their folders. Snapshot does not automatically delete images after seven days.</p>
+        <h3>Delete, undo and restore</h3><p>Deleting moves images to <strong>Recently deleted</strong>. Use the immediate Undo message to reverse the latest deletion, or open Recently deleted to restore images later. Items stay there until you restore them or choose <strong>Empty trash</strong>. Emptying the trash requires confirmation and permanently removes those items.</p><p>On narrow windows, open the sidebar with the sidebar button. Choose a view, press <kbd>Esc</kbd>, or click outside to close it.</p>
+      </section>
+      <section id="folders">
+        <p class="eyebrow">04 / Organize</p><h2>Give a project its own folder.</h2>
+        <ol><li>Click the <strong>New folder</strong> button beside Folders in the library sidebar.</li><li>Enter a unique name (up to 80 characters) and choose <strong>Create folder</strong>.</li><li>Use an image’s <strong>Move</strong> action and choose the folder. For several images, use Select and <strong>Move selected</strong>.</li></ol><p>Each image belongs to one folder at most. Choose <strong>Unfiled</strong> to remove its folder assignment. All snapshots still includes images from every folder.</p><p>Open a folder to rename or delete it. <strong>Deleting a folder keeps its images</strong> and moves them to Unfiled.</p>
+      </section>
+      <section id="settings">
+        <p class="eyebrow">05 / Make it yours</p><h2>Three settings. Your choice.</h2>
+        <p>Open <strong>Settings</strong> in the library sidebar. Choose <strong>Save settings</strong> to apply changes; Cancel or <kbd>Esc</kbd> discards them.</p>
+        <figure><a href="images/settings.png"><img src="images/settings.png" width="760" height="640" loading="lazy" alt="Settings dialog: automatically copy on, automatically save off, and save source information on."></a><figcaption>The default settings. Changes stay on this device.</figcaption></figure>
+        <dl class="settings"><dt>Automatically copy captures <span>On by default</span></dt><dd>Copies each new capture to the clipboard. Turn it off to capture without automatic clipboard writes. You can still copy saved images from the library.</dd><dt>Automatically save captures to library <span>Off by default</span></dt><dd>Attempts to save each new capture in the library. If automatic saving fails, the confirmation offers Save to library so you can try again. With this off, choose Save to library for the images you want to keep.</dd><dt>Save source information <span>On by default</span></dt><dd>Keeps the page title and a sanitized source link. With this off, new saves use the title “Snapshot” and have no source link. Existing images are unchanged.</dd></dl>
+      </section>
+      <section id="shortcuts">
+        <p class="eyebrow">06 / Keyboard</p><h2>Keep your hands on the keys.</h2>
+        <table><caption>Default keyboard shortcuts</caption><thead><tr><th scope="col">Action</th><th scope="col">Shortcut</th></tr></thead><tbody><tr><td>Start capture</td><td><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>S</kbd></td></tr><tr><td>Open library</td><td><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>L</kbd></td></tr><tr><td>Move between elements</td><td><kbd>←</kbd> / <kbd>→</kbd></td></tr><tr><td>Select parent / return to previous child</td><td><kbd>↑</kbd> / <kbd>↓</kbd></td></tr><tr><td>Capture selection</td><td><kbd>Enter</kbd></td></tr><tr><td>Exit capture mode</td><td><kbd>Esc</kbd></td></tr></tbody></table><p>Element navigation works while capture mode is active, with focus on Capture selection or outside the toolbar fields. Down returns to a child only after you expanded the selection with Up. If a shortcut conflicts with another app or extension, change it at <code>chrome://extensions/shortcuts</code>.</p>
+      </section>
+      <section id="troubleshooting">
+        <p class="eyebrow">07 / Help</p><h2>Get unstuck.</h2>
+        <details><summary>Capture will not start, or the icon shows “!”</summary><p>Chrome blocks capture on browser-internal pages such as <code>chrome://</code>, the Chrome Web Store and some built-in pages. Try a regular website. If that page was open before installing or updating Snapshot, reload it. On older Chrome versions, the help popup may need a second toolbar click.</p></details>
+        <details><summary>The capture says “Could not copy”</summary><p>Some pages or system settings block clipboard access. Choose Save to library or Download PNG. You can try copying the saved image from the library.</p></details>
+        <details><summary>Capturing a local file does not work</summary><p>Open <code>chrome://extensions</code>, choose Snapshot’s Details, and enable Allow access to file URLs. Local-file paths are never saved as source links.</p></details>
+        <details><summary>My library looks empty after updating</summary><p>Check that Chrome is loading the same folder as before. A different folder can create a separate installation. Return to the original installation folder; do not uninstall it.</p></details>
+        <details><summary>“The extension was updated. Reload this webpage”</summary><p>Refresh the webpage after updating or reloading the extension, then start capture again.</p></details>
+        <details><summary>“Close other Snapshot library tabs…”</summary><p>A library upgrade is waiting. Close all Snapshot library tabs, then open the library again.</p></details>
+        <details><summary>The page moved, changed, or lost focus during capture</summary><p>Keep the tab and Chrome window active. Wait for the page to settle, select again, and avoid scrolling or resizing until the capture finishes. Reset pinch zoom before capturing; standard browser zoom is supported.</p></details>
+        <details><summary>“Capture is too large”</summary><p>Select a smaller element or area. Only the visible viewport can be captured, and very large images can exceed temporary storage limits.</p></details>
+      </section>
+      <section id="privacy">
+        <p class="eyebrow">08 / On your device</p><h2>Your images stay local.</h2>
+        <p>Snapshot has no accounts, uploads or analytics. Images and settings stay in this browser profile on this device. The library is not encrypted or synced, and uninstalling removes it.</p><p>New source links drop credentials, query strings and fragments. Local-file paths are omitted. Page titles and sanitized link paths may still contain private information. Removing query strings or fragments can also make a source link open a different view.</p><p>Sharing a capture shares everything visible inside your selection. Source metadata is not attached to copied or downloaded images. Clipboard contents and downloads are separate copies; deleting a library image does not remove them.</p>
+      </section>
+      <footer>Snapshot 0.5.2 · User guide <a href="#top">Back to top ↑</a></footer>
+    </main>
+  </div>
+</body>
+</html>
