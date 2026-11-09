@@ -13,7 +13,7 @@ before(async () => {
 after(async () => { await browser?.close(); });
 
 const defaultBody = '<style>body{margin:0;background:#d7e9f8;font-family:Georgia}article{width:100vw;height:100vh}</style><article id="target"><h1>Capture test</h1></article>';
-async function setup(t, { copyFails = false, autoCopy = true, width = 1200, body = defaultBody } = {}) {
+async function setup(t, { copyFails = false, autoCopy = true, width = 1200, body = defaultBody, settings } = {}) {
   const page = await browser.newPage({ viewport: { width, height: 800 } });
   page.setDefaultTimeout(8000);
   t.after(() => page.close());
@@ -22,19 +22,20 @@ async function setup(t, { copyFails = false, autoCopy = true, width = 1200, body
   const clean = await page.screenshot();
   const captures = [];
   // Screenshot the real painted page at the point where the worker would capture.
-  // Chrome messaging and clipboard are mocked; browser rendering is real.
+  // Chrome messaging, storage and clipboard are mocked; browser rendering is real.
   await page.exposeFunction('recordCapture', async () => {
     captures.push(await page.screenshot());
   });
-  await page.evaluate(({ copyFails, autoCopy }) => {
-    window.testState = { captures: 0, copies: 0, libraryOpens: 0, saves: [], downloads: [], failCapture: false, copyFails };
+  await page.evaluate(({ copyFails, autoCopy, settings }) => {
+    window.testState = { captures: 0, copies: 0, libraryOpens: 0, saves: [], downloads: [], failCapture: false, copyFails, requests: [] };
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { write: async () => {
       if (window.testState.copyFails) throw Error('Clipboard blocked');
       window.testState.copies++;
     } } });
     window.ClipboardItem = class { constructor(value) { this.value = value; } };
-    window.chrome = { runtime: { onMessage: { addListener() {} }, sendMessage: async message => {
+    window.chrome = { storage: { local: { get: async () => ({ settings }) } }, runtime: { onMessage: { addListener() {} }, sendMessage: async message => {
       if (message.type === 'snap:capture') {
+        window.testState.requests.push({ rect: message.rect, label: message.label });
         await window.recordCapture();
         if (window.testState.failCapture) return { ok: false, error: 'Capture failed. Try again.' };
         window.testState.captures++;
@@ -49,11 +50,13 @@ async function setup(t, { copyFails = false, autoCopy = true, width = 1200, body
       if (message.type === 'snap:download-draft') window.testState.downloads.push(message.id);
       return { ok: true };
     } } };
-  }, { copyFails, autoCopy });
+  }, { copyFails, autoCopy, settings });
   await page.addScriptTag({ path: root + 'dist/brand.js' });
   await page.addScriptTag({ path: root + 'dist/content.js' });
   await page.clock.install();
   const ui = id => page.locator(`#element-snap-overlay #${id}`);
+  const active = async () => await page.locator('#element-snap-overlay').count() === 1;
+  const focused = () => page.evaluate(() => document.getElementById('element-snap-overlay')?.shadowRoot.activeElement?.id);
   const snap = async () => {
     const count = captures.length;
     await page.mouse.click(100, 180);
@@ -64,21 +67,18 @@ async function setup(t, { copyFails = false, autoCopy = true, width = 1200, body
     });
     assert.equal(captures.length, count + 1);
   };
-  return { page, ui, snap, clean, captures };
+  return { page, ui, snap, clean, captures, active, focused };
 }
 
 test('repeated captures exclude every overlay pixel, even with an expanded panel', async t => {
   const { page, ui, snap, clean, captures } = await setup(t);
-  const toolbarBefore = await ui('bar').boundingBox();
   await snap();
   assert.equal(await ui('toast-text').textContent(), 'Copied to clipboard');
   for (const id of ['save', 'download']) assert.equal(await ui(id).isVisible(), true);
   const notification = await ui('toast').boundingBox();
   assert.ok(notification.width < 330, 'popup fits its two remaining actions');
-  assert.equal(notification.y, 20);
-  assert.equal(notification.x + notification.width, 1180);
-  const toolbarWithDraft = await ui('bar').boundingBox();
-  assert.equal(toolbarWithDraft.y, toolbarBefore.y, 'result actions keep the toolbar at its current edge');
+  assert.equal(notification.y, 24);
+  assert.equal(notification.x + notification.width, 1176);
   if (process.env.SNAPSHOT_SCREENSHOT_DIR) {
     await page.screenshot({ path: `${process.env.SNAPSHOT_SCREENSHOT_DIR}/capture-top-right.png` });
   }
@@ -91,13 +91,12 @@ test('repeated captures exclude every overlay pixel, even with an expanded panel
   assert.equal(await ui('toast').isVisible(), true);
   await ui('dismiss').click();
   assert.equal(await ui('last-capture').count(), 0, 'there is no Last capture control');
-  assert.deepEqual(await ui('bar').boundingBox(), toolbarWithDraft, 'hiding the result does not resize the toolbar');
   await snap();
   assert.deepEqual(captures[2], clean, 'another capture works after hiding the result');
 });
 
 test('initial notification hides after five idle seconds without affecting copy or capture mode', async t => {
-  const { page, ui, snap } = await setup(t);
+  const { page, ui, snap, active } = await setup(t);
   await snap();
   await page.clock.runFor(2500);
   assert.equal(await ui('toast').isVisible(), true);
@@ -108,7 +107,7 @@ test('initial notification hides after five idle seconds without affecting copy 
   assert.equal(await ui('last-capture').count(), 0);
   assert.equal(await ui('notifications').evaluate(el => el.getBoundingClientRect().height), 0);
   assert.equal(await page.evaluate(() => testState.copies), 1, 'hiding does not replace the clipboard');
-  assert.equal(await ui('bar').isVisible(), true);
+  assert.equal(await active(), true);
   await snap();
   await ui('download').click();
   await ui('save').click();
@@ -118,7 +117,7 @@ test('initial notification hides after five idle seconds without affecting copy 
 });
 
 test('auto-hide pauses during hover and keyboard use; manual dismissal keeps capture mode active', async t => {
-  const { page, ui, snap } = await setup(t);
+  const { page, ui, snap, active, focused } = await setup(t);
   await snap();
   await ui('toast-text').hover();
   await page.clock.runFor(5000);
@@ -127,20 +126,20 @@ test('auto-hide pauses during hover and keyboard use; manual dismissal keeps cap
   await ui('save').focus();
   await page.clock.runFor(5000);
   assert.equal(await ui('toast').isVisible(), true);
-  await ui('element').focus();
+  await ui('root').focus();
   await page.clock.runFor(5100);
   assert.equal(await ui('toast').isVisible(), false);
   assert.equal(await ui('last-capture').count(), 0);
   await snap();
   await ui('dismiss').click();
-  assert.equal(await ui('capture').evaluate(el => el === el.getRootNode().activeElement), true, 'dismissal returns keyboard focus to capture');
+  assert.equal(await focused(), 'root', 'dismissal returns keyboard focus to the capture region');
   assert.equal(await ui('notifications').evaluate(el => el.getBoundingClientRect().height), 0, 'nothing floats over the page after dismissal');
-  assert.equal(await ui('bar').isVisible(), true, 'capture mode stays enabled');
+  assert.equal(await active(), true, 'capture mode stays enabled');
   await snap();
   assert.equal(await page.evaluate(() => testState.captures), 3, 'another capture works without restarting');
   await ui('toast-library').focus();
   await page.keyboard.press('Escape');
-  assert.equal(await page.locator('#element-snap-overlay').count(), 0);
+  assert.equal(await active(), false);
 });
 
 test('countdown bar follows the idle timer and resets during interaction', async t => {
@@ -158,7 +157,7 @@ test('countdown bar follows the idle timer and resets during interaction', async
   await ui('save').focus();
   await page.clock.runFor(6000);
   assert.equal(await fraction(), 1, 'keyboard use also keeps the full countdown');
-  await ui('element').focus();
+  await ui('root').focus();
   await page.clock.runFor(2400);
   assert.ok(await fraction() > .4 && await fraction() < .6);
   await page.clock.runFor(2700);
@@ -199,14 +198,21 @@ test('copy failures stay expanded, recapture works, and capture failures restore
 });
 
 test('narrow layout fits and restarting capture mode starts with no result notification', async t => {
-  const { page, ui, snap } = await setup(t, { width: 390 });
+  const { page, ui, snap, active } = await setup(t, { width: 390 });
+  const hint = await ui('hint').boundingBox();
+  assert.ok(hint.x >= 0 && hint.x + hint.width <= 390 && hint.y + hint.height <= 800, 'start hint fits');
   await snap();
   const notification = await ui('toast').boundingBox();
-  const help = await ui('help').boundingBox();
-  assert.ok(notification.y + notification.height <= help.y, 'notification sits above the toolbar');
-  assert.ok(help.y - (notification.y + notification.height) <= 24, 'notification stays close to the toolbar');
+  assert.equal(notification.y + notification.height, 788, 'notification sits at the bottom within thumb reach');
   assert.equal(notification.x + notification.width, 378);
-  for (const id of ['toast', 'bar', 'help', 'save', 'download', 'toast-library', 'dismiss']) {
+  await ui('root').focus();
+  await page.keyboard.press('a');
+  const fields = await ui('area-fields').boundingBox(), raised = await ui('toast').boundingBox();
+  assert.equal(raised.y, 12, 'with the coordinates panel open, the notification moves to the top');
+  assert.ok(fields.x >= 0 && fields.x + fields.width <= 390 && fields.y + fields.height <= 800, 'coordinates panel fits');
+  await page.keyboard.press('Escape');
+  assert.equal(await ui('toast').boundingBox().then(b => b.y + b.height), 788);
+  for (const id of ['toast', 'save', 'download', 'toast-library', 'dismiss']) {
     const bounds = await ui(id).boundingBox();
     assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= 390, `${id} fits horizontally`);
     assert.ok(bounds.y >= 0 && bounds.y + bounds.height <= 800, `${id} fits vertically`);
@@ -214,8 +220,9 @@ test('narrow layout fits and restarting capture mode starts with no result notif
   if (process.env.SNAPSHOT_SCREENSHOT_DIR) {
     await page.screenshot({ path: `${process.env.SNAPSHOT_SCREENSHOT_DIR}/capture-narrow.png` });
   }
-  await ui('close').click();
-  assert.equal(await page.locator('#element-snap-overlay').count(), 0);
+  await ui('root').focus();
+  await page.keyboard.press('Escape');
+  assert.equal(await active(), false);
   await page.evaluate(() => window.__elementSnap.toggle());
   assert.equal(await ui('last-capture').count(), 0);
   assert.equal(await ui('toast').isVisible(), false);
@@ -229,9 +236,10 @@ test('page scripts cannot read captured pixels from the popup or invoke its acti
   const before=await page.evaluate(()=>JSON.stringify(testState));
   const exposed=await page.evaluate(()=>{
     const root=document.getElementById('element-snap-overlay').shadowRoot;
-    for(const id of ['save','download']) root.getElementById(id).click();
+    for(const id of ['save','download','area-capture']) root.getElementById(id).click();
     document.getElementById('target').click();
     window.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+    window.dispatchEvent(new KeyboardEvent('keydown',{key:'a',bubbles:true}));
     return /data:image|blob:|<img|<canvas/.test(root.innerHTML);
   });
   await page.clock.runFor(200);
@@ -248,16 +256,16 @@ test('auto-copy off offers save and download without touching clipboard', async 
   await ui('save').click(); assert.deepEqual(await page.evaluate(()=>testState.saves),['capture-1']);
 });
 
-test('notification close preserves capture; toolbar exit restores normal page clicks', async t => {
-  const {page,ui,snap}=await setup(t);
+test('notification close preserves capture; Escape exit restores normal page clicks', async t => {
+  const {page,ui,snap,active}=await setup(t);
   await snap();
   await ui('save').click();
   await snap();
   assert.equal(await page.evaluate(()=>testState.copies),2);
   await ui('dismiss').click();
   assert.equal(await ui('last-capture').count(),0);
-  await ui('close').click();
-  assert.equal(await page.locator('#element-snap-overlay').count(),0);
+  await page.keyboard.press('Escape');
+  assert.equal(await active(),false);
   await page.evaluate(()=>{ window.normalClicks=0; document.addEventListener('click',()=>window.normalClicks++); });
   await page.mouse.click(100,180);
   assert.equal(await page.evaluate(()=>window.normalClicks),1);
@@ -265,36 +273,112 @@ test('notification close preserves capture; toolbar exit restores normal page cl
 });
 
 test('keyboard-only element capture and coordinate area capture work', async t => {
-  const {page, ui} = await setup(t);
-  assert.equal(await ui('capture').evaluate(el => el === el.getRootNode().activeElement),true);
+  const {page, ui, focused, active} = await setup(t);
+  assert.equal(await focused(), 'root', 'capture region takes focus so shortcuts work at once');
+  assert.match(await ui('root').getAttribute('aria-label'), /Arrow keys.*Enter.*A enters area coordinates.*Escape/);
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('Enter');
   await page.clock.runFor(200);
   await ui('save').waitFor({state:'visible'});
   assert.equal(await page.evaluate(()=>testState.captures),1);
-  await ui('area').focus(); await page.keyboard.press('Enter');
+  await ui('root').focus();
+  await page.keyboard.press('a');
+  assert.equal(await ui('area-fields').isVisible(), true);
+  assert.equal(await focused(), 'area-x', 'coordinates panel takes focus');
   await ui('area-x').fill('20'); await ui('area-y').fill('30');
   await ui('area-width').fill('120'); await ui('area-height').fill('80');
-  await ui('capture').focus(); await page.keyboard.press('Enter');
+  await ui('area-height').press('Enter');
   await page.clock.runFor(200);
   await page.waitForFunction(()=>testState.captures===2);
+  assert.deepEqual(await page.evaluate(()=>testState.requests[1]), { rect: { x: 20, y: 30, width: 120, height: 80 }, label: 'Area selection' });
   await ui('save').click();
   assert.deepEqual(await page.evaluate(()=>testState.saves),['capture-2']);
+  await ui('area-x').focus();
+  await page.keyboard.press('Escape');
+  assert.equal(await ui('area-fields').isVisible(), false, 'Escape in the panel closes it');
+  assert.equal(await active(), true, 'and keeps capture mode on');
+  assert.equal(await focused(), 'root');
+  await page.keyboard.press('a');
+  await ui('area-cancel').focus();
+  await page.keyboard.press('Enter');
+  assert.equal(await ui('area-fields').isVisible(), false, 'Enter on Cancel cancels instead of capturing');
+  assert.equal(await page.evaluate(()=>testState.captures), 2);
 });
 
-test('toolbar moves out of the way of pinned page elements it would cover', async t => {
-  const body = '<style>body{margin:0;height:100vh;background:#fff}#top{position:fixed;top:0;left:0;right:0;height:72px;background:#ddd}#banner{position:fixed;bottom:0;left:0;right:0;height:72px;background:#fc6}</style><header id="top">Header</header><div id="banner">Cookie banner</div>';
+test('no toolbar: nothing but the outline sits over the page once the start hint fades', async t => {
+  const body = '<style>body{margin:0;height:100vh;background:#fff}#banner{position:fixed;bottom:0;left:0;right:0;height:72px;background:#fc6}</style><div id="banner">Cookie banner</div>';
   const { page, ui } = await setup(t, { body });
-  const hover = async (x, y) => { await page.mouse.move(x, y); await page.clock.runFor(50); };
-  assert.ok((await ui('bar').boundingBox()).y > 600, 'toolbar starts at the bottom');
-  await hover(20, 770);
-  const bar = await ui('bar').boundingBox(), label = await ui('label').boundingBox(), dock = await ui('dock').boundingBox();
-  assert.ok(bar.y < 120, 'toolbar moves to the top when it would cover the banner');
-  assert.ok(label.y >= dock.y + dock.height && label.y + label.height <= 800, 'banner label stays visible');
-  await hover(20, 20);
-  assert.ok((await ui('bar').boundingBox()).y > 600, 'toolbar returns when it would cover the header');
-  await hover(600, 400);
-  assert.ok((await ui('bar').boundingBox()).y > 600, 'elements overlapping both positions do not make it jump');
+  for (const id of ['dock', 'bar', 'capture', 'element', 'area', 'padding', 'close']) assert.equal(await ui(id).count(), 0, `no #${id}`);
+  assert.equal(await ui('hint').isVisible(), true, 'a hint explains the gestures at the start');
+  assert.match(await ui('hint-text').textContent(), /Click to capture.*Drag for an area.*Esc/);
+  assert.equal(await ui('hint').evaluate(el => getComputedStyle(el).pointerEvents), 'none', 'the hint never takes clicks');
+  const hint = await ui('hint').boundingBox();
+  await page.mouse.click(hint.x + hint.width / 2, hint.y + hint.height / 2);
+  await page.clock.runFor(200);
+  await page.waitForFunction(() => testState.captures === 1);
+  assert.equal(await page.evaluate(() => testState.requests[0].rect.y), 728, 'clicking where the hint was captures the banner underneath');
+  assert.equal(await ui('hint').isVisible(), false, 'capturing hides the hint');
+});
+
+test('the start hint fades by itself after a few seconds', async t => {
+  const { page, ui } = await setup(t);
+  // Restart capture mode so the hint timer runs on the test clock.
+  await page.evaluate(() => { window.__elementSnap.toggle(); window.__elementSnap.toggle(); });
+  await page.clock.runFor(3900);
+  assert.equal(await ui('hint').isVisible(), true);
+  await page.clock.runFor(500);
+  assert.equal(await ui('hint').isVisible(), false);
+});
+
+test('dragging captures an area; a small wobble while clicking still captures the element', async t => {
+  const { page, ui } = await setup(t);
+  await page.mouse.move(100, 100);
+  await page.mouse.down();
+  await page.mouse.move(300, 250, { steps: 6 });
+  await page.clock.runFor(50);
+  assert.match(await ui('label').textContent(), /^Area selection · 200 × 150/);
+  await page.mouse.up();
+  await page.clock.runFor(200);
+  await page.waitForFunction(() => testState.captures === 1);
+  assert.deepEqual(await page.evaluate(() => testState.requests[0]), { rect: { x: 100, y: 100, width: 200, height: 150 }, label: 'Area selection' }, 'only the area is captured, not an element as well');
+  await page.mouse.move(400, 400);
+  await page.clock.runFor(50);
+  assert.match(await ui('label').textContent(), /^Heading|^Element|^Article/, 'moving afterwards returns to element selection');
+  await page.mouse.move(60, 40);
+  await page.mouse.down();
+  await page.mouse.move(62, 42);
+  await page.mouse.up();
+  await page.clock.runFor(200);
+  await page.waitForFunction(() => testState.captures === 2);
+  assert.equal(await page.evaluate(() => testState.requests[1].label), 'Element');
+});
+
+test('an area drag released over the notification still finishes the capture', async t => {
+  const { page, ui, snap } = await setup(t);
+  await snap();
+  const toast = await ui('toast').boundingBox();
+  await page.mouse.move(100, 300);
+  await page.mouse.down();
+  await page.mouse.move(toast.x + 20, toast.y + toast.height / 2, { steps: 6 });
+  await page.mouse.up();
+  await page.clock.runFor(200);
+  await page.waitForFunction(() => testState.captures === 2);
+  assert.equal(await page.evaluate(() => testState.requests[1].label), 'Area selection');
+  await page.mouse.move(300, 500);
+  await page.clock.runFor(50);
+  assert.doesNotMatch(await ui('label').textContent(), /^Area/, 'the drag does not stay stuck after release');
+});
+
+test('capture padding comes from Settings', async t => {
+  const body = '<style>body{margin:0;background:#fff}#box{position:absolute;left:200px;top:200px;width:100px;height:50px;background:#fc6}</style><div id="box"></div>';
+  const { page, ui } = await setup(t, { body, settings: { padding: 16 } });
+  await page.mouse.move(250, 225);
+  await page.clock.runFor(50);
+  assert.match(await ui('label').textContent(), /132 × 82/);
+  await page.mouse.click(250, 225);
+  await page.clock.runFor(200);
+  await page.waitForFunction(() => testState.captures === 1);
+  assert.deepEqual(await page.evaluate(() => testState.requests[0].rect), { x: 184, y: 184, width: 132, height: 82 });
 });
 
 for (const width of [1200, 390]) test(`capture actions stay reachable across sticky page elements at ${width}px`, async t => {
@@ -305,11 +389,10 @@ for (const width of [1200, 390]) test(`capture actions stay reachable across sti
   const clickAt = async point => { await page.mouse.click(point.x, point.y); await page.clock.runFor(50); };
   await snap();
   const save = center(await ui('save').boundingBox());
-  const toast = await ui('toast').boundingBox(), bar = await ui('bar').boundingBox();
+  const toast = await ui('toast').boundingBox();
   for (const y of [30, 770, 30]) {
     await hover(5, y);
     assert.deepEqual(await ui('toast').boundingBox(), toast, 'popup does not flee while approaching Save');
-    assert.deepEqual(await ui('bar').boundingBox(), bar, 'toolbar cannot shift the popup indirectly');
   }
   await clickAt(save);
   assert.deepEqual(await page.evaluate(() => testState.saves), ['capture-1'], 'original Save coordinates still save the intended capture');

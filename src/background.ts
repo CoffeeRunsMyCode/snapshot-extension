@@ -1,6 +1,6 @@
 import { privateSourceUrl } from "./privacy.js";
 import { getSettings } from "./settings.js";
-import { cropBounds, filename } from "./geometry.js";
+import { cropBounds, filename, downloadName } from "./geometry.js";
 import { saveCapture, getCapture, deleteCapture } from "./db.js";
 
 const draftKey = (tabId: number) => "captureDraft:" + tabId;
@@ -23,18 +23,33 @@ function withDraft<T>(run: () => Promise<T>): Promise<T> {
   draftQueue = next.catch(() => {});
   return next;
 }
+// Off: leave saveAs unset so Chrome's own download setting applies (usually the Downloads folder).
+// On: always show Save As, which starts in the folder the user picked last time.
+async function downloadChoice() { return (await getSettings()).askWhere ? { saveAs: true } : {}; }
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-function openGallery(id?: string) {
-  const url = new URL(chrome.runtime.getURL("gallery.html"));
+// Reuse an open library tab instead of stacking duplicates. runtime.getContexts (Chrome 116+)
+// lists this extension's own pages without needing the "tabs" permission.
+async function openGallery(id?: string) {
+  const base = chrome.runtime.getURL("gallery.html");
+  const url = new URL(base);
   if (id) url.hash = id;
-  return chrome.tabs.create({ url: url.href });
+  try {
+    const contexts = await chrome.runtime.getContexts({ contextTypes: ["TAB"] });
+    const open = contexts.find((c: { documentUrl?: string; tabId: number }) => c.tabId >= 0 && c.documentUrl?.split("#")[0] === base);
+    if (open) {
+      await chrome.tabs.update(open.tabId, id ? { active: true, url: url.href } : { active: true });
+      await chrome.windows.update(open.windowId, { focused: true });
+      return;
+    }
+  } catch { /* Fall through and open a fresh tab. */ }
+  await chrome.tabs.create({ url: url.href });
 }
 async function start(tab: { id?: number; url?: string }) {
   if (!tab.id) return;
   try {
     await chrome.action.setPopup({ tabId: tab.id, popup: "" });
     await chrome.action.setBadgeText({ tabId: tab.id, text: "" });
-    await chrome.action.setTitle({ tabId: tab.id, title: "Snapshot — click to capture; right-click for library" });
+    await chrome.action.setTitle({ tabId: tab.id, title: "Snapshot - click to capture an element or area; right-click for library" });
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["dist/brand.js", "dist/content.js"] });
     return true;
   } catch {
@@ -143,7 +158,7 @@ async function handle(message: any, sender: any) {
         const { dataURL, ...metadata } = draft;
         if (!(await getSettings()).saveSource) { metadata.title = "Snapshot"; metadata.url = ""; }
         await saveCapture({ ...metadata, blob: await (await fetch(dataURL)).blob() });
-      } else await chrome.downloads.download({ url: draft.dataURL, filename: filename(draft.createdAt), saveAs: false });
+      } else await chrome.downloads.download({ url: draft.dataURL, filename: filename(draft.createdAt), ...(await downloadChoice()) });
       return { id: draft.id };
     });
   }
@@ -156,7 +171,7 @@ async function handle(message: any, sender: any) {
     if (!fromGallery || sender.frameId !== 0) throw new Error("Open the library to download this capture.");
     const record = await getCapture(message.id);
     if (!record) throw new Error("This capture is no longer in the library.");
-    await chrome.downloads.download({ url: await blobDataURL(record.blob), filename: filename(record.createdAt), saveAs: false });
+    await chrome.downloads.download({ url: await blobDataURL(record.blob), filename: downloadName(record), ...(await downloadChoice()) });
     return {};
   }
   throw new Error("Unknown request.");

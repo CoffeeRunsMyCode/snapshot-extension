@@ -18,3 +18,8 @@ export function cropBounds(rect: Rect, viewport: { width: number; height: number
 export function filename(createdAt: number) {
   return `Snapshot/capture-${new Date(createdAt).toISOString().replace(/[:.]/g, "-")}.png`;
 }
+/** A renamed snapshot downloads under the user's name; otherwise the neutral timestamp. Never the page title. */
+export function downloadName(record: { createdAt: number; name?: string }) {
+  const name = record.name?.replace(/[\\/:*?"<>|\u0000-\u001f]/g, "-").replace(/[. ]+$/, "").trim();
+  return name ? `Snapshot/${name}.png` : filename(record.createdAt);
+}

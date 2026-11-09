@@ -1,33 +1,43 @@
-# Snapshot privacy guide
+# Snapshot privacy policy
 
-Snapshot processes captures locally. It has no accounts, analytics, advertising, uploads or remote application services.
+Snapshot is free, open-source software (MIT license). The developer collects nothing, receives nothing and cannot see anything you capture.
 
-## Capture and copy
+## What Snapshot does with your data
 
-The visible viewport is captured in memory and cropped to your selection. The crop is held in isolated content-script memory and trusted extension session storage. It is never attached to the webpage as an image, canvas or image URL. The in-page popup shows status and buttons without screenshot pixels. Scripts on the webpage cannot access isolated extension variables. Synthetic clicks and keyboard events are rejected.
+Nothing leaves your device. Snapshot has no accounts, servers, analytics, telemetry, advertising or network requests of its own. The developer has no access to your images, names, settings or browsing.
 
-Capturing attempts to copy the image automatically by default. Turn off Automatically copy captures in library Settings to avoid clipboard writes during capture. Saved images can be copied from the library. Clipboard contents can be read by applications or websites with the necessary permissions and may be synced by your operating system. Do not capture sensitive content if you do not want it copied.
+## What is stored, and where
 
-Each tab retains its latest temporary draft internally. A successful new capture replaces it. Hiding the notification or exiting capture mode does not clear it, and there is no Last capture control to reopen its actions. Navigating/reloading, closing the tab or restarting the browser/extension clears the draft. Session copies survive service-worker suspension. Storage limits may require capturing a smaller area. Dismissing the notification does not change the clipboard or images already saved to the library.
+- **Settings** are kept in the extension's local storage in your Chrome profile. They are not synced.
+- **Temporary drafts**: a fresh capture is held in memory and Chrome's session storage until you save, download or discard it, or the tab navigates, closes or the browser restarts.
+- **Library** (only if you choose Save to library, or turn on automatic saving): the PNG, the page title and link (unless you turn off "Keep page title and link"), a selection label, size, date, any name you give it, favorites and folders. This is stored in the extension's local database (IndexedDB) in your Chrome profile. It is not synced, not encrypted, and is deleted when you uninstall Snapshot.
+- **Copies you make**: by default a capture is copied to the clipboard (you can turn this off in Settings). Clipboard contents are managed by your operating system and may be readable by other apps or synced by your system.
+- **Downloads** are ordinary PNG files saved by Chrome. Deleting from the library or uninstalling never removes them, because Chrome does not let extensions run code on uninstall. Filenames are neutral timestamps; if you rename a snapshot, your name is used.
 
-## What is saved
+## Protections built in
 
-Settings are stored locally, with no sync. Turn off Save source information to omit source titles and URLs from new captures and saves; they use the neutral title Snapshot. Existing entries are not modified. Turning this off before saving also removes source metadata from that new save.
+Links saved with a capture have credentials, query strings and fragments removed, and local-file paths are not kept. Page titles and link paths can still contain private details, so you can turn source information off entirely. Snapshot asks for the minimum browser permissions and only reads a page after you start a capture.
 
-Choosing Save to library, or enabling automatic saving, stores the PNG, page title, sanitized source URL, generic selection label, timestamp, dimensions and clipping status in local IndexedDB. Favorites, folder names and assignments are local too. URL credentials, query strings and fragments are removed before retaining a new draft. Local-file URLs are omitted. Some links may lose their route or stop opening the exact resource. Existing saved URLs from earlier versions are not rewritten.
+## What you control
 
-This prevents typical query-string or fragment access tokens from being retained. It cannot identify every secret: a URL path, title or image can itself contain private data.
+You choose what to capture, whether to copy or save it, what to name it, and whether and where to download or share it. You can delete images (they go to Recently deleted first), empty the trash, and uninstall at any time.
 
-## When local information can become exposed
+## Your responsibility
 
-Local storage alone does not transmit a URL or screenshot to anyone. Exposure can occur when you share a screenshot or source link, share your device/browser profile, sync clipboard contents, copy profile backups elsewhere, or run software with access to your profile. A malicious webpage cannot read the screenshot through Snapshot's popup, but can still change its own visible content or read clipboard data if you separately grant it permission.
+A screenshot shows everything inside your selection, which may include personal, confidential or copyrighted material. You are responsible for what you capture, name, store, share or download, for the files and clipboard copies you create, and for complying with the law and the terms of the sites you capture. The developer does not see, review or control any of it, and is not responsible for it. Snapshot is provided as is, without warranty, as set out in the [MIT license](LICENSE).
 
-## Deletion and permissions
+The library is not an encrypted vault. Anyone with access to your device or browser profile may be able to see it.
 
-Deleting snapshots moves them to Recently deleted, stored locally until you restore them or confirm Empty trash. Trash does not expire automatically. Deleting a folder keeps images in Unfiled. Uninstalling removes the local library. Downloads and clipboard contents are separate copies, unaffected by deletion or uninstall. Download filenames use neutral timestamps.
+## Children and sensitive data
 
-Local storage is not an encrypted vault. Clearing ordinary browsing history does not clear extension storage. Snapshot provides no cloud backup or synchronization.
+Snapshot is a general-purpose tool and is not directed at children. It does not knowingly collect any personal data from anyone. Avoid capturing sensitive information (passwords, health, financial or government records) unless you are comfortable with it being copied or stored on your device.
 
-Permissions: activeTab and scripting enable capture after invocation; downloads saves PNGs; clipboardWrite supports copying; contextMenus adds Open library; storage retains temporary drafts in session memory. File access is optional through Chrome settings.
+## Changes
 
-Automatic saving is off by default. If enabled, each capture is saved to the local library, including its pixels and source metadata according to your source-information setting.
+If this policy changes, the updated version will be published in this repository and the date or version noted in the changelog. Continued use after a change means you accept it.
+
+## Contact
+
+Open an issue on this project's GitHub page. Please do not include screenshots, tokens or private links. For security problems, see [SECURITY.md](SECURITY.md).
+
+This document is a plain-language description of how the software behaves and is not legal advice.

@@ -1,4 +1,6 @@
 import { fillIcons } from "./icons.js";
+import { followTheme } from "./theme.js";
+followTheme();
 const brandStyle = document.createElement("style");
 brandStyle.textContent = window.__snapshotBrand.css;
 document.head.prepend(brandStyle);

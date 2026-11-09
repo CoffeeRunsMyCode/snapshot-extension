@@ -4,6 +4,7 @@ interface Window { __snapshotBrand: { css: string; paths: Record<string, string>
   window.__snapshotBrand = {
     css: `
 :root,.snapshot-root {
+ color-scheme:light;
  --sn-font:"Segoe UI",system-ui,sans-serif;
  --sn-text:#262b29; --sn-muted:#626a65; --sn-bg:#f3f4f3;
  --sn-surface:#f9faf9; --sn-white:#fff; --sn-sidebar:#eeefee;
@@ -15,9 +16,33 @@ interface Window { __snapshotBrand: { css: string; paths: Record<string, string>
  --sn-radius:5px; --sn-panel-radius:8px;
  --sn-shadow:0 4px 18px #0002;
 }
+/* Dark theme. data-theme is "light", "dark" or "system" (missing counts as system).
+   --sn-white is the base surface and --sn-charcoal the strongest ink, so both flip. */
+:root[data-theme=dark],.snapshot-root[data-theme=dark] {
+ --sn-text:#e4e8e5; --sn-muted:#a3aca6; --sn-bg:#202422;
+ --sn-surface:#1c201e; --sn-white:#171a19; --sn-sidebar:#202422;
+ --sn-line:#2e3431; --sn-border:#3e4541; --sn-hover:#2a302d;
+ --sn-control-border:#6b756f;
+ --sn-charcoal:#e4e8e5; --sn-charcoal-hover:#c8cfca;
+ --sn-accent:#7cc4a0; --sn-selected:#28382f; --sn-selected-text:#a9dcc1;
+ --sn-danger:#f08a7c; --sn-danger-bg:#3a2421;
+ --sn-shadow:0 4px 18px #0009; color-scheme:dark;
+}
+@media (prefers-color-scheme: dark) {
+ :root:not([data-theme=light]),.snapshot-root:not([data-theme=light]) {
+ --sn-text:#e4e8e5; --sn-muted:#a3aca6; --sn-bg:#202422;
+ --sn-surface:#1c201e; --sn-white:#171a19; --sn-sidebar:#202422;
+ --sn-line:#2e3431; --sn-border:#3e4541; --sn-hover:#2a302d;
+ --sn-control-border:#6b756f;
+ --sn-charcoal:#e4e8e5; --sn-charcoal-hover:#c8cfca;
+ --sn-accent:#7cc4a0; --sn-selected:#28382f; --sn-selected-text:#a9dcc1;
+ --sn-danger:#f08a7c; --sn-danger-bg:#3a2421;
+ --sn-shadow:0 4px 18px #0009; color-scheme:dark;
+ }
+}
 .snapshot-root {
  all:initial; font:400 13px/1.5 var(--sn-font); color:var(--sn-text);
- direction:ltr; text-align:left; color-scheme:light; font-synthesis:none;
+ direction:ltr; text-align:left; font-synthesis:none;
  -webkit-text-size-adjust:100%; text-size-adjust:100%;
 }
 .snapshot-root *, .snapshot-root *::before, .snapshot-root *::after { box-sizing:border-box; }
@@ -50,6 +75,7 @@ interface Window { __snapshotBrand: { css: string; paths: Record<string, string>
   image: '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 16 5-5 5 5 3-3 5 5"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/>', check: '<path d="m5 12 4 4L19 6"/>',
   settings: '<path d="M10.17 5.24L10.49 2.92L13.51 2.92L13.83 5.24L15.49 5.93L17.35 4.51L19.49 6.65L18.07 8.51L18.76 10.17L21.08 10.49L21.08 13.51L18.76 13.83L18.07 15.49L19.49 17.35L17.35 19.49L15.49 18.07L13.83 18.76L13.51 21.08L10.49 21.08L10.17 18.76L8.51 18.07L6.65 19.49L4.51 17.35L5.93 15.49L5.24 13.83L2.92 13.51L2.92 10.49L5.24 10.17L5.93 8.51L4.51 6.65L6.65 4.51L8.51 5.93Z"/><circle cx="12" cy="12" r="3"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/>',
   retry: '<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>'
 }
   };

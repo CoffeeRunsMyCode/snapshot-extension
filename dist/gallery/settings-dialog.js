@@ -1,4 +1,4 @@
-import { getSettings, saveSettings } from "../settings.js";
+import { getSettings, saveSettings, validTheme } from "../settings.js";
 import { $, notice } from "./dom.js";
 let settingsBusy = false;
 const settingsDialog = $("settings-dialog");
@@ -9,7 +9,10 @@ $("open-settings").onclick = async () => {
         const settings = await getSettings();
         $("setting-auto-copy").checked = settings.autoCopy;
         $("setting-auto-save").checked = settings.autoSave;
+        $("setting-padding").value = String(settings.padding);
         $("setting-save-source").checked = settings.saveSource;
+        $("setting-ask-where").checked = settings.askWhere;
+        $("setting-theme").value = settings.theme;
         $("settings-error").textContent = "";
         settingsDialog.showModal();
     }
@@ -32,7 +35,7 @@ $("settings-form").addEventListener("submit", async (e) => {
     for (const id of ["save-settings", "cancel-settings"])
         $(id).disabled = true;
     try {
-        await saveSettings({ autoSave: $("setting-auto-save").checked, autoCopy: $("setting-auto-copy").checked, saveSource: $("setting-save-source").checked });
+        await saveSettings({ autoSave: $("setting-auto-save").checked, autoCopy: $("setting-auto-copy").checked, saveSource: $("setting-save-source").checked, padding: Number($("setting-padding").value), askWhere: $("setting-ask-where").checked, theme: validTheme($("setting-theme").value) });
         settingsDialog.close();
         notice("Settings saved.");
     }

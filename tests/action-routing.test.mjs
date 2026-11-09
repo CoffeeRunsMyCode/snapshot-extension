@@ -66,6 +66,23 @@ test('library opens only when its menu item or library shortcut is selected', as
   ]);
 });
 
+test('an open library tab is focused instead of opening another one', async () => {
+  const app = await worker();
+  const updates = [], focused = [];
+  chrome.runtime.getContexts = async () => [
+    { tabId: -1, windowId: -1, documentUrl: 'chrome-extension://test-extension/capture-help.html' },
+    { tabId: 9, windowId: 3, documentUrl: 'chrome-extension://test-extension/gallery.html#old' }
+  ];
+  chrome.tabs.update = async (tabId, value) => { updates.push([tabId, value]); };
+  chrome.windows = { update: async (windowId, value) => { focused.push([windowId, value]); } };
+  app.events.menu({ menuItemId: 'open-library' });
+  await new Promise(resolve => app.events.message({ type: 'snap:gallery', id: 'abc' }, { id: 'test-extension' }, resolve));
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(app.opened.length, 0);
+  assert.deepEqual(updates, [[9, { active: true }], [9, { active: true, url: 'chrome-extension://test-extension/gallery.html#abc' }]]);
+  assert.deepEqual(focused, [[3, { focused: true }], [3, { focused: true }]]);
+});
+
 test('popup drafts survive worker restart and reject wrong documents, tabs, IDs and forged payloads', async () => {
   const records = new Map(), downloads = [];
   let writes = 0;
@@ -135,5 +152,10 @@ test('popup drafts survive worker restart and reject wrong documents, tabs, IDs 
   assert.equal(records.get('new-private-capture').title,'Snapshot');
   assert.equal(records.get('new-private-capture').url,'');
   assert.equal(records.get(draft.id).url,'https://example.com/original','existing saves are unchanged');
+  assert.equal('saveAs' in downloads[0],false,'by default Chrome decides where downloads go');
+  session.settings = {askWhere:true};
+  session['captureDraft:42'] = {draft:{...draft,id:'ask-where'},documentId:sender.documentId};
+  assert.equal((await send({type:'snap:download-draft',id:'ask-where'})).ok,true);
+  assert.equal(downloads.at(-1).saveAs,true,'Ask where to save shows the Save As dialog');
 
 });

@@ -67,7 +67,8 @@ const stored = page => page.evaluate(async () => (await (await import('/dist/db.
 test('source links open the original full page URL and websites remain grouped', async t => {
   const page = await setup(t);
   const link = page.locator('.card[data-id="one"] .source-domain');
-  assert.equal(await link.textContent(), source);
+  assert.equal(await link.textContent(), new URL(source).hostname, 'cards show the site name');
+  assert.equal(await link.getAttribute('title'), source, 'full address on hover');
   assert.equal(await link.getAttribute('href'), source);
   assert.equal(await link.getAttribute('target'), '_blank');
   assert.equal(await page.locator('#sites button').count(), 2);
@@ -371,6 +372,8 @@ test('sidebar preference persists, guide is simplified, and desktop/narrow layou
   assert.equal(await page.locator('#top-help').count(), 0);
   assert.equal(await page.locator('#help [data-icon="arrow"]').count(), 0);
   await page.locator('#help').click(); assert.equal(await page.locator('#guide').isVisible(), true);
+  assert.equal(await page.locator('#full-guide').getAttribute('href'), 'docs/index.html');
+  assert.equal(await page.evaluate(async () => (await fetch('docs/index.html')).ok), true, 'full guide ships with the extension');
   await page.locator('#got-it').click();
   if (process.env.SNAPSHOT_SCREENSHOT_DIR) await page.screenshot({ path: `${process.env.SNAPSHOT_SCREENSHOT_DIR}/library-desktop.png` });
   await page.locator('#select-mode').click(); await page.locator('#select-all').check();
@@ -419,4 +422,72 @@ test('Recently deleted persists, restores, and only empties after confirmation',
   assert.deepEqual(await stored(page),[]);
   await page.evaluate(async()=>{await (await import('/dist/db.js')).restoreTrash(['one','two','three']);});
   assert.deepEqual(await stored(page),[],'stale restore cannot resurrect purged snapshots');
+});
+
+test('snapshots can be renamed on the card or in the preview, and clearing restores the page title', async t => {
+  const page = await setup(t);
+  const named = () => page.evaluate(async () => Object.fromEntries((await (await import('/dist/db.js')).listCaptures()).map(r => [r.id, r.name])));
+  const title = page.locator('.card[data-id="two"] .card-title');
+  await title.click();
+  const input = page.locator('.card[data-id="two"] .rename-input');
+  assert.equal(await input.inputValue(), 'Pricing page');
+  await input.fill('  Plan comparison   table '); await input.press('Enter');
+  await page.waitForFunction(() => document.querySelector('.card[data-id="two"] .card-title')?.textContent === 'Plan comparison table');
+  assert.equal((await named()).two, 'Plan comparison table', 'whitespace is tidied');
+  assert.equal(await page.evaluate(() => document.querySelector(':focus-visible')), null, 'a rename started with the mouse leaves no focus ring');
+  // Started from the keyboard, focus returns to the title so keyboard users keep their place.
+  await title.focus(); await page.keyboard.press('Enter');
+  await input.fill('Plan comparison'); await input.press('Enter');
+  await page.waitForFunction(() => document.querySelector('.card[data-id="two"] .card-title')?.textContent === 'Plan comparison');
+  assert.equal(await page.evaluate(() => document.activeElement?.classList.contains('card-title')), true, 'keyboard rename returns focus to the title');
+  await title.click(); await input.fill('Plan comparison table'); await input.press('Enter');
+  await page.waitForFunction(() => document.querySelector('.card[data-id="two"] .card-title')?.textContent === 'Plan comparison table');
+  // Search finds the new name and the original page title.
+  for (const query of ['comparison', 'pricing page']) {
+    await page.locator('#search').fill(query);
+    await page.waitForFunction(() => document.querySelectorAll('.card').length === 1);
+    assert.equal(await page.locator('.card').getAttribute('data-id'), 'two');
+  }
+  await page.locator('#search').fill(''); await page.waitForFunction(() => document.querySelectorAll('.card').length === 3);
+  // Esc cancels without saving.
+  await page.locator('.card[data-id="two"] .card-title').click();
+  await page.locator('.card[data-id="two"] .rename-input').fill('Discarded'); await page.keyboard.press('Escape');
+  assert.equal(await page.locator('.card[data-id="two"] .card-title').textContent(), 'Plan comparison table');
+  // Preview: Rename, then clear the field to go back to the page title.
+  await page.locator('.card[data-id="two"] .thumb').click(); await page.locator('#viewer').waitFor();
+  assert.match(await page.locator('#viewer-meta').textContent(), /Page title: Pricing page/);
+  await page.locator('#viewer-rename').click();
+  await page.locator('#viewer .rename-input').fill(''); await page.keyboard.press('Enter');
+  await page.waitForFunction(() => document.getElementById('viewer-title').textContent === 'Pricing page');
+  assert.equal(await page.locator('#viewer').isVisible(), true, 'Enter does not close the preview');
+  assert.equal((await named()).two, undefined, 'empty name removes the custom name');
+  await page.keyboard.press('Escape');
+  // F2 on a focused preview starts renaming.
+  await page.locator('.card[data-id="three"] .thumb').focus(); await page.keyboard.press('F2');
+  assert.equal(await page.locator('.card[data-id="three"] .rename-input').count(), 1);
+  await page.keyboard.press('Escape');
+  assert.equal(await page.locator('.card[data-id="three"] .card-title').textContent(), 'Other website');
+});
+
+test('names Windows cannot store show an error under the field and are never saved', async t => {
+  const page = await setup(t);
+  await page.locator('.card[data-id="two"] .card-title').click();
+  const input = page.locator('.card[data-id="two"] .rename-input');
+  await input.fill('Q3/Q4 plans');
+  const error = page.locator('.card[data-id="two"] .rename-error');
+  assert.match(await error.textContent(), /can’t include/);
+  assert.equal(await input.getAttribute('aria-invalid'), 'true');
+  await input.press('Enter');
+  assert.equal(await input.count(), 1, 'Enter keeps the field open while the name has a problem');
+  await input.fill('Q3 and Q4 plans');
+  assert.equal(await error.isHidden(), true, 'the error clears once fixed');
+  await input.press('Enter');
+  await page.waitForFunction(() => document.querySelector('.card[data-id="two"] .card-title')?.textContent === 'Q3 and Q4 plans');
+  // Leaving the field with a bad name cancels and explains.
+  await page.locator('.card[data-id="three"] .card-title').click();
+  await page.locator('.card[data-id="three"] .rename-input').fill('CON');
+  await page.locator('#search').focus();
+  await page.waitForFunction(() => document.getElementById('notice').textContent.includes('Name not saved'));
+  assert.equal(await page.locator('.card[data-id="three"] .card-title').textContent(), 'Other website');
+  assert.equal(await page.locator('.rename-error').count(), 0);
 });

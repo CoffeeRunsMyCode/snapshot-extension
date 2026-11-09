@@ -1,3 +1,4 @@
+import { nameProblem } from "./library.js";
 import { folderName } from "./folders.js";
 let connection;
 function open() {
@@ -84,6 +85,25 @@ export const setFavorite = (id, favorite) => transaction(["captures"], "readwrit
             return;
         }
         store.put({ ...request.result, favorite });
+    };
+});
+export const NAME_LIMIT = 120;
+export const renameCapture = (id, value) => transaction(["captures"], "readwrite", (tx, _result, fail) => {
+    const store = tx.objectStore("captures"), request = store.get(id);
+    request.onsuccess = () => {
+        if (!request.result) {
+            fail("This snapshot is no longer in the library. Reload to refresh.");
+            return;
+        }
+        const problem = nameProblem(value);
+        if (problem) {
+            fail(problem);
+            return;
+        }
+        const { name: _old, ...record } = request.result;
+        const name = value.replace(/\s+/g, " ").trim().slice(0, NAME_LIMIT);
+        // An empty name, or one equal to the page title, goes back to showing the page title.
+        store.put(name && name !== record.title ? { ...record, name } : record);
     };
 });
 export async function deleteCapture(id) { const record = await getCapture(id); if (record)

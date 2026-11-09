@@ -1,6 +1,6 @@
-import { listLibrary, changeCaptures, restoreTrash, setFavorite, type Capture } from "../db.js";
+import { listLibrary, changeCaptures, restoreTrash, setFavorite, renameCapture, NAME_LIMIT, type Capture } from "../db.js";
 import { icon } from "../icons.js";
-import { filterCaptures, sourceUrl, siteName as sourceName } from "../library.js";
+import { filterCaptures, sourceUrl, siteName as sourceName, displayName, nameProblem } from "../library.js";
 import { $, button, notice, onUndo } from "./dom.js";
 import { openMove } from "./move.js";
 import { state, byName } from "./state.js";
@@ -10,6 +10,55 @@ const viewerFolder = document.createElement("p"); viewerFolder.id = "viewer-fold
 $("viewer-meta").after(viewerFolder);
 const viewerMove = button("Move", () => { if (state.selected) return openMove([state.selected.id]); }, "secondary", "folder");
 viewerMove.id = "viewer-move"; $("viewer-copy").before(viewerMove);
+const viewerRename = button("Rename", () => { if (state.selected) startRename($("viewer-title"), state.selected); }, "secondary", "edit");
+viewerRename.id = "viewer-rename"; viewerMove.before(viewerRename);
+/** Swaps a title element for a text field. Enter or leaving the field saves; Esc cancels. Empty restores the page title. */
+// Whether the last input was the keyboard, so a rename started with the mouse doesn't end with a focus ring.
+let keyboardInput = false;
+document.addEventListener("keydown", () => { keyboardInput = true; }, true);
+document.addEventListener("pointerdown", () => { keyboardInput = false; }, true);
+export function startRename(target: HTMLElement, record: Capture) {
+  if (target.querySelector("input")) return;
+  // Keyboard users get focus back on the title afterwards; mouse users don't need it.
+  const returnFocus = keyboardInput;
+  const previous = Array.from(target.childNodes);
+  const input = document.createElement("input");
+  input.className = "rename-input"; input.maxLength = NAME_LIMIT; input.value = displayName(record);
+  input.placeholder = record.title; input.setAttribute("aria-label", `Name. Leave empty to use the page title: ${record.title}`);
+  // The message sits under the field and updates as you type, so a bad character is caught before saving.
+  const error = document.createElement("p"); error.className = "rename-error"; error.id = `rename-error-${record.id}`;
+  error.setAttribute("role", "alert"); error.hidden = true;
+  input.setAttribute("aria-describedby", error.id);
+  const check = () => {
+    const problem = nameProblem(input.value);
+    error.textContent = problem || ""; error.hidden = !problem;
+    input.setAttribute("aria-invalid", String(!!problem));
+    return problem;
+  };
+  input.addEventListener("input", check);
+  let done = false;
+  const finish = async (save: boolean) => {
+    if (done) return;
+    const value = input.value, problem = save ? nameProblem(value) : undefined;
+    done = true; error.remove();
+    target.replaceChildren(...previous);
+    if (problem) notice(`Name not saved. ${problem}`);
+    if (!save || problem || value.trim() === displayName(record)) { if (returnFocus) (target.querySelector("button") || target).focus?.(); return; }
+    try {
+      await renameCapture(record.id, value); await refresh();
+      if (state.selected?.id === record.id) $("viewer-title").textContent = displayName(state.selected);
+      notice(value.trim() ? "Renamed." : "Name cleared. Showing the page title.");
+      if (returnFocus) document.querySelector<HTMLButtonElement>(`.card[data-id="${CSS.escape(record.id)}"] .card-title`)?.focus();
+    } catch (error) { notice((error as Error).message); }
+  };
+  input.addEventListener("keydown", event => {
+    // Enter with a problem keeps the field open so the name can be fixed.
+    if (event.key === "Enter") { event.preventDefault(); if (!check()) void finish(true); }
+    if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); void finish(false); }
+  });
+  input.addEventListener("blur", () => void finish(true));
+  target.replaceChildren(input); target.after(error); input.focus(); input.select();
+}
 const day = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" });
 const dayTime = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 onUndo(() => void restore());
@@ -32,16 +81,15 @@ function updateNavigation() {
   });
   const sites = new Map<string, number>();
   for (const record of records) { const name = sourceName(record.url); sites.set(name, (sites.get(name) || 0) + 1); }
-  $("site-count").textContent = String(sites.size); $("sites-empty").hidden = !!sites.size;
+  $("sites-empty").hidden = !!sites.size;
   $("sites").replaceChildren();
   for (const [name, count] of [...sites].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))) {
     const item = button("", () => { state.folder = undefined; state.site = name; state.filter = "all"; render(); }, "nav-item site-item" + (site === name ? " active" : ""));
     item.title = name; item.setAttribute("aria-label", `Filter by ${name}`);
     if (site === name) item.setAttribute("aria-current", "page");
-    const dot = document.createElement("span"); dot.className = "site-dot"; dot.textContent = name[0].toUpperCase();
     const label = document.createElement("span"); label.textContent = name;
     const total = document.createElement("span"); total.className = "site-count"; total.textContent = String(count);
-    item.append(dot, label, total); $("sites").append(item);
+    item.append(label, total); $("sites").append(item);
   }
   $("folders").replaceChildren();
   $("folders-empty").hidden = !!folders.length;
@@ -67,9 +115,10 @@ export function preview(record: Capture) {
   $("viewer-download").hidden = state.filter === "trash";
   if (previewUrl) URL.revokeObjectURL(previewUrl);
   previewUrl = URL.createObjectURL(record.blob);
-  const img = $<HTMLImageElement>("full-image"); img.src = previewUrl; img.alt = record.title;
-  $("viewer-title").textContent = record.title;
-  $("viewer-meta").textContent = `${sourceName(record.url)} · ${record.width} × ${record.height} px · ${dayTime.format(record.createdAt)}${record.clipped ? " · Visible portion only" : ""}`;
+  const img = $<HTMLImageElement>("full-image"); img.src = previewUrl; img.alt = displayName(record);
+  $("viewer-title").textContent = displayName(record);
+  $("viewer-rename").hidden = state.filter === "trash";
+  $("viewer-meta").textContent = `${sourceName(record.url)} · ${record.width} × ${record.height} px · ${dayTime.format(record.createdAt)}${record.clipped ? " · Visible portion only" : ""}${record.name ? ` · Page title: ${record.title}` : ""}`;
   $("viewer-status").textContent = "";
   $("viewer-folder").textContent = `Folder: ${membership(record)}`;
   const source = $<HTMLAnchorElement>("viewer-source");
@@ -86,7 +135,7 @@ function snapshotCard(record: Capture) {
   const { filter, selecting, selectedIds } = state;
   const card = document.createElement("article"); card.className = "card"; card.dataset.id = record.id;
   const wrap = document.createElement("div"); wrap.className = "preview-wrap";
-  const thumbnail = button("", () => { if (state.selecting) toggleSelection(record.id); else preview(record); }, "thumb"); thumbnail.setAttribute("aria-label", `${selecting ? "Select" : "Preview"} ${record.title}`);
+  const thumbnail = button("", () => { if (state.selecting) toggleSelection(record.id); else preview(record); }, "thumb"); thumbnail.setAttribute("aria-label", `${selecting ? "Select" : "Preview"} ${displayName(record)}`);
   if (selecting) thumbnail.setAttribute("aria-pressed", String(selectedIds.has(record.id)));
   const image = document.createElement("img");
   const url = URL.createObjectURL(record.blob); urls.push(url); image.src = url; image.alt = record.label; image.loading = "lazy";
@@ -106,37 +155,44 @@ function snapshotCard(record: Capture) {
     checkbox.setAttribute("aria-label", `Select ${record.title}`); checkbox.onchange = () => toggleSelection(record.id);
     label.append(checkbox); wrap.append(label);
   }
-  if (record.clipped) { card.dataset.clipped = ""; const badge = document.createElement("span"); badge.className = "partial-badge"; badge.textContent = "Visible portion"; wrap.append(badge); }
   const body = document.createElement("div"); body.className = "card-body";
-  const source = document.createElement("div"); source.className = "source";
-  const dot = document.createElement("span"); dot.className = "source-dot"; dot.textContent = sourceName(record.url)[0];
+  const title = document.createElement("h2");
+  const name = displayName(record);
+  if (filter === "trash" || selecting) { title.textContent = name; title.title = name; }
+  else {
+    // The title is a button: click (or F2 on the preview) to rename in place.
+    const rename = button(name, () => startRename(title, record), "card-title");
+    rename.title = [name, record.name ? `Page title: ${record.title}` : "", "Click to rename"].filter(Boolean).join("\n");
+    rename.setAttribute("aria-label", `Rename ${name}`);
+    title.append(rename);
+    thumbnail.addEventListener("keydown", event => { if (event.key === "F2") { event.preventDefault(); startRename(title, record); } });
+  }
+  // One quiet line: site · date · folder (only when filed) · visible portion (only when clipped).
+  const source = document.createElement("p"); source.className = "source";
   const href = sourceUrl(record.url);
-  const domain = document.createElement(href ? "a" : "span"); domain.className = "source-domain"; domain.textContent = record.url || sourceName(record.url); domain.title = record.url;
-  if (domain instanceof HTMLAnchorElement && href) { domain.href = href; domain.target = "_blank"; domain.rel = "noopener noreferrer"; domain.setAttribute("aria-label", `Open source page: ${record.url}`); }
+  const domain = document.createElement(href ? "a" : "span"); domain.className = "source-domain"; domain.textContent = sourceName(record.url); domain.title = record.url;
+  if (domain instanceof HTMLAnchorElement && href) { domain.href = href; domain.target = "_blank"; domain.rel = "noopener noreferrer"; domain.setAttribute("aria-label", `${sourceName(record.url)}, open source page`); }
   const time = document.createElement("time"); time.dateTime = new Date(record.createdAt).toISOString(); time.textContent = day.format(record.createdAt);
-  source.append(dot, domain, time);
-  const title = document.createElement("h2"); title.textContent = record.title; title.title = record.title;
-  const meta = document.createElement("span"); meta.className = "meta"; meta.textContent = `${record.width} × ${record.height}`;
+  source.append(domain, " · ", time);
+  const folderName = state.folders.find(f => f.id === record.folderId)?.name;
+  if (folderName && state.folder === undefined) { const filed = document.createElement("span"); filed.className = "folder-membership"; filed.textContent = folderName; source.append(" · ", filed); }
+  if (record.clipped) source.append(" · Visible portion");
   const actions = document.createElement("div"); actions.className = "card-actions";
   actions.append(
-    button("Copy", async () => { await copy(record); notice("Image copied. Ready to paste."); }, "", "copy"),
+    button("Copy", async () => { await copy(record); notice("Image copied. Ready to paste."); }, "copy-snapshot", "copy"),
     button("", async () => { await request("snap:download", record.id); notice("PNG download started."); }, "download-snapshot icon-action", "download"),
     button("", () => openMove([record.id]), "move-snapshot icon-action", "folder"),
-    meta,
     button("", async () => {
       await removeCaptures([record]);
     }, "remove icon-action", "trash")
   );
   for (const [selector, label, tip] of [[".download-snapshot", "Download", "Download PNG"], [".move-snapshot", "Move", "Move to folder"], [".remove", "Delete", "Delete snapshot"]]) {
     const control = actions.querySelector<HTMLButtonElement>(selector)!;
-    control.setAttribute("aria-label", `${label} ${record.title}`); control.title = tip;
+    control.setAttribute("aria-label", `${label} ${displayName(record)}`); control.title = tip;
   }
   if (filter === "trash") actions.replaceChildren(button("Restore", async () => { await restoreTrash([record.id]); await refresh(); notice("Snapshot restored."); document.querySelector<HTMLButtonElement>('[data-filter="trash"]')?.focus(); }, "restore-snapshot", "clock"));
   actions.hidden = selecting;
-  const filed = document.createElement("div"); filed.className = "folder-membership";
-  const folderLabel = document.createElement("span"); folderLabel.textContent = membership(record);
-  filed.append(icon("folder"), folderLabel, meta);
-  body.append(title, source, filed); card.append(wrap, body, actions);
+  body.append(title, source); card.append(wrap, body, actions);
   return card;
 }
 export function render() {
@@ -155,10 +211,9 @@ export function render() {
   $<HTMLButtonElement>("restore-all").disabled = !trash.length;
   $("folder-actions").hidden = !folder;
   $("page-title").textContent = title;
-  $("count").textContent = String(visible.length);
+  // An empty library has nothing to sort or select; the empty state explains what to do.
+  document.querySelector<HTMLElement>(".controls")!.hidden = !records.length && filter !== "trash";
   $("result-count").textContent = records.length ? `${visible.length} snapshot${visible.length === 1 ? "" : "s"}${search ? " matching your search" : ""}` : "No saved snapshots";
-  $("footer-count").textContent = `Showing ${visible.length} of ${records.length} snapshots`;
-  $("library-footer").hidden = !visible.length;
   $("empty").hidden = records.length !== 0 || folder !== undefined;
   $("no-results").hidden = (!records.length && folder === undefined) || !!visible.length;
   $("no-results-title").textContent = filter === "favorites" && !search ? "No favorites yet" : "No snapshots found";
@@ -171,8 +226,7 @@ export function render() {
     $("empty").hidden = true; $("no-results").hidden = !!visible.length;
     $("no-results-title").textContent = search ? "No deleted snapshots match" : "Recently deleted is empty";
     $("no-results-description").textContent = "Deleted snapshots stay here until you restore them or empty the trash.";
-    $("result-count").textContent = visible.length + " deleted snapshots";
-    $("footer-count").textContent = "Showing " + visible.length + " of " + trash.length + " deleted snapshots";
+    $("result-count").textContent = `${visible.length} deleted snapshot${visible.length === 1 ? "" : "s"}`;
   }
   const grid = $("grid"); grid.replaceChildren(); grid.hidden = !visible.length;
   for (const record of visible) grid.append(snapshotCard(record));
@@ -212,6 +266,7 @@ export function updateSelection() {
   $("delete-label").textContent = selectedIds.size ? `Delete (${selectedIds.size})` : "Delete selected";
   $<HTMLButtonElement>("delete-selected").disabled = deleting || !selectedIds.size;
   $<HTMLButtonElement>("move-selected").disabled = deleting || !selectedIds.size;
+  $<HTMLButtonElement>("download-selected").disabled = deleting || !selectedIds.size;
   const all = $<HTMLInputElement>("select-all");
   all.checked = !!visibleRecords.length && selectedIds.size === visibleRecords.length;
   all.indeterminate = !!selectedIds.size && !all.checked;

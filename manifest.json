@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Snapshot",
-  "version": "0.5.2",
+  "version": "1.0.0",
   "description": "Capture webpage elements or areas. Copy immediately, save to your library or download only when you choose.",
   "minimum_chrome_version": "116",
   "permissions": [
@@ -17,7 +17,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "Snapshot - click to capture; right-click for library"
+    "default_title": "Snapshot - click to capture an element or area; right-click for library"
   },
   "options_page": "gallery.html",
   "commands": {

@@ -14,7 +14,9 @@ artifacts/
 !.agents/skills/
 .claude/*
 !.claude/skills/
+!.claude/agents/
 .codex/
+__pycache__/
 
 # Credentials stay private even in the development repository.
 .aws/

@@ -2,7 +2,7 @@
 
 A Chrome extension for capturing a webpage element or a rectangular area, copying it, and keeping the images you want in a local library. No accounts, uploads or analytics.
 
-Requires Chrome 116 or newer. Current version: 0.5.2. See the [changelog](CHANGELOG.md).
+Requires Chrome 116 or newer. Current version: 0.6.0. See the [changelog](CHANGELOG.md).
 
 **[Read the illustrated user guide](docs/index.html)** for capture, folders, settings and troubleshooting. Downloaded a copy of the repository? Open `docs/index.html` in your browser; the guide works offline.
 
@@ -28,15 +28,17 @@ Do not uninstall to update: uninstalling deletes your local library. Loading the
 
 1. On a regular webpage, click the Snapshot icon or press **Alt+Shift+S**.
 2. **Element:** hover and click an element. With the keyboard, use Left/Right to move between elements, Up to select a parent and Down to return to the child you expanded from, and Enter to capture.
-   **Area:** drag a rectangle, or enter X, Y, width and height and choose **Capture selection**.
+   **Area:** press and drag anywhere to draw a rectangle; releasing captures it. Or press **A**, enter X, Y, width and height, and choose **Capture** (or press Enter).
 3. The image is copied to your clipboard when Chrome allows it. The initial confirmation offers **Save to library** and **Download PNG**. A thin bar shows its five-second auto-hide timer. Hovering or focusing the panel holds a fresh five seconds until you move away. Its × hides it immediately without exiting capture mode. Saved images remain available in the library for downloading later.
 
-Escape exits capture mode. Only the visible part of the page is captured. Dismissing the notification leaves the clipboard and saved library images unchanged. Keep capturing on the same page; each successful capture replaces the clipboard image when automatic copy is enabled and succeeds.
+There is no toolbar over the page: a short hint shows the gestures when capture starts, then fades. Escape, or clicking the Snapshot icon again, exits capture mode. Padding is in the library's Settings. Only the visible part of the page is captured. Dismissing the notification leaves the clipboard and saved library images unchanged. Keep capturing on the same page; each successful capture replaces the clipboard image when automatic copy is enabled and succeeds.
 
 ## Library
 
 Right-click the Snapshot icon and choose **Open library**, or press **Alt+Shift+L**.
 
+- Rename an image by clicking its title (or press F2, or use Rename in the preview). Clear the name to go back to the page title. Names can’t use \ / : * ? " < > | or Windows-reserved names such as CON, because they may become file names.
+- Download several at once: choose Select, pick images, then Download. You get one ZIP file.
 - Search, filter by website, view Recently saved or Favorites, and switch between grid and list. Recently saved shows captures taken within the last seven days; older saved images remain in All snapshots and their folders. This filter does not delete images.
 - Copy, download, open the source page, or delete images.
 - **Folders:** create them from the sidebar and move images individually or in a batch. Each image is in at most one folder. Deleting a folder keeps its images in Unfiled.
@@ -48,15 +50,18 @@ Open **Settings** in the library sidebar.
 
 | Setting | Default | Effect |
 | --- | --- | --- |
-| Automatically copy captures | On | Turn off to avoid clipboard writes. You can still save, download, or copy from the library. |
-| Automatically save captures to library | Off | Turn on to save each capture automatically. If saving fails, retry with Save to library. |
-| Save source information | On | Turn off to save new images with the title "Snapshot" and no source link. Existing images are unchanged. |
+| Copy to clipboard | On | Turn off to avoid clipboard writes. You can still save, download, or copy from the library. |
+| Save to library | Off | Turn on to save each capture automatically. If saving fails, retry with Save to library. |
+| Padding | None | Adds 8, 16 or 24 pixels around every capture. |
+| Keep page title and link | On | Turn off to save new images with the title "Snapshot" and no source link. Existing images are unchanged. |
+| Theme | Match system | Light, Dark, or follow your system setting. |
+| Ask where to save downloads | Off | Off: downloads go where Chrome normally saves files. On: Chrome asks for a folder each time. |
 
 Settings stay on this device.
 
 ## Privacy
 
-Everything stays on your device in the extension's local storage. New saves drop URL credentials, query strings and fragments. Local-file paths are never saved. Downloads use neutral timestamp filenames.
+Everything stays on your device in the extension's local storage. New saves drop URL credentials, query strings and fragments. Local-file paths are never saved. Downloads use neutral timestamp filenames, unless you renamed the snapshot, in which case your name is used. Page titles and links never appear in filenames. The developer collects nothing and can’t see your captures. You are responsible for what you capture, name and share; see [PRIVACY.md](PRIVACY.md).
 
 Sharing a capture shares everything visible inside your selection. Saved source information is not attached to copies or downloads. Sanitized links may still contain private information in their path.
 

@@ -1,8 +1,11 @@
+import { nameProblem } from "./library.js";
 import { folderName } from "./folders.js";
 
 export interface Capture {
   id: string; title: string; url: string; label: string; createdAt: number;
   width: number; height: number; clipped: boolean; blob: Blob; favorite?: boolean; folderId?: string;
+  /** Name the user typed. When absent the page title is shown. Never used for download filenames. */
+  name?: string;
 }
 export interface Folder { id: string; name: string; nameKey: string; createdAt: number; updatedAt: number }
 let connection: Promise<IDBDatabase> | undefined;
@@ -73,6 +76,19 @@ export const setFavorite = (id: string, favorite: boolean) => transaction<void>(
   request.onsuccess = () => {
     if (!request.result) { fail("This snapshot is no longer in the library. Reload to refresh."); return; }
     store.put({ ...request.result, favorite });
+  };
+});
+export const NAME_LIMIT = 120;
+export const renameCapture = (id: string, value: string) => transaction<void>(["captures"], "readwrite", (tx, _result, fail) => {
+  const store = tx.objectStore("captures"), request = store.get(id);
+  request.onsuccess = () => {
+    if (!request.result) { fail("This snapshot is no longer in the library. Reload to refresh."); return; }
+    const problem = nameProblem(value);
+    if (problem) { fail(problem); return; }
+    const { name: _old, ...record } = request.result;
+    const name = value.replace(/\s+/g, " ").trim().slice(0, NAME_LIMIT);
+    // An empty name, or one equal to the page title, goes back to showing the page title.
+    store.put(name && name !== record.title ? { ...record, name } : record);
   };
 });
 export async function deleteCapture(id: string) { const record = await getCapture(id); if (record) await changeCaptures([record], true); }
