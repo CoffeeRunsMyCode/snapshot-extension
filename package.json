@@ -11,7 +11,8 @@
     "test:browser": "node --test tests/browser/*.test.mjs"
   },
   "devDependencies": {
-    "typescript": "5.8.3",
-    "playwright": "1.62.1"
+    "gifenc": "1.0.3",
+    "playwright": "1.62.1",
+    "typescript": "5.8.3"
   }
 }
